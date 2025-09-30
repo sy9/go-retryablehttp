@@ -793,13 +793,11 @@ func (c *Client) Do(req *Request) (*http.Response, error) {
 				v.Printf("[DEBUG] %s: retrying in %s (%d left)", desc, wait, remain)
 			}
 		}
-		timer := time.NewTimer(wait)
 		select {
 		case <-req.Context().Done():
-			timer.Stop()
 			c.HTTPClient.CloseIdleConnections()
 			return nil, req.Context().Err()
-		case <-timer.C:
+		case <-time.After(wait):
 		}
 
 		// Make shallow copy of http Request so that we can modify its body
