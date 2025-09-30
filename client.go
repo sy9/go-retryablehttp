@@ -30,7 +30,6 @@ import (
 	"fmt"
 	"io"
 	"log"
-	"math"
 	"math/rand"
 	"net/http"
 	"net/url"
@@ -552,17 +551,26 @@ func DefaultBackoff(min, max time.Duration, attemptNum int, resp *http.Response)
 	if resp != nil {
 		if resp.StatusCode == http.StatusTooManyRequests || resp.StatusCode == http.StatusServiceUnavailable {
 			if sleep, ok := parseRetryAfterHeader(resp.Header["Retry-After"]); ok {
-				return sleep
+				return clamp(sleep, min, max)
 			}
 		}
 	}
 
-	mult := math.Pow(2, float64(attemptNum)) * float64(min)
-	sleep := time.Duration(mult)
-	if float64(sleep) != mult || sleep > max {
-		sleep = max
+	mult := time.Duration(1) << attemptNum // 2^attemptNum
+	if mult > max/min {
+		return max
 	}
-	return sleep
+	return clamp(min*mult, min, max)
+}
+
+func clamp(d, min, max time.Duration) time.Duration {
+	if d < min {
+		return min
+	}
+	if d > max {
+		return max
+	}
+	return d
 }
 
 // parseRetryAfterHeader parses the Retry-After header and returns the
